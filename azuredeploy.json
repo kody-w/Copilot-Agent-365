@@ -39,66 +39,22 @@
     "location": {
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
-      "allowedValues": [
-        "eastus",
-        "eastus2",
-        "centralus",
-        "westus",
-        "westus2",
-        "westus3",
-        "northcentralus",
-        "southcentralus",
-        "westcentralus",
-        "northeurope",
-        "westeurope",
-        "uksouth",
-        "ukwest",
-        "francecentral",
-        "germanywestcentral",
-        "norwayeast",
-        "switzerlandnorth",
-        "uaenorth",
-        "southafricanorth",
-        "australiaeast",
-        "australiasoutheast",
-        "australiacentral",
-        "japaneast",
-        "japanwest",
-        "koreacentral",
-        "southeastasia",
-        "eastasia",
-        "centralindia",
-        "southindia",
-        "canadacentral",
-        "canadaeast",
-        "brazilsouth"
-      ],
       "metadata": {
-        "description": "Location for all resources. Choose a region where you have quota available."
+        "description": "Location for all resources"
       }
     },
-    "skuName": {
+    "repoUrl": {
       "type": "string",
-      "defaultValue": "Y1",
-      "allowedValues": [
-        "Y1",
-        "EP1",
-        "EP2",
-        "EP3"
-      ],
+      "defaultValue": "https://github.com/kody-w/Copilot-Agent-365",
       "metadata": {
-        "description": "Pricing tier. Y1 = Consumption (Pay-per-use), EP1-3 = Premium (if Y1 quota exceeded)"
+        "description": "GitHub repository URL (automatically deploys code)"
       }
     },
-    "skuTier": {
+    "branch": {
       "type": "string",
-      "defaultValue": "Dynamic",
-      "allowedValues": [
-        "Dynamic",
-        "ElasticPremium"
-      ],
+      "defaultValue": "main",
       "metadata": {
-        "description": "SKU Tier. Dynamic for Consumption, ElasticPremium for Premium plans"
+        "description": "GitHub branch to deploy from"
       }
     }
   },
@@ -107,8 +63,7 @@
     "applicationInsightsName": "[concat(parameters('functionAppName'), '-insights')]",
     "fileShareName": "azfbusinessbot3c92ab",
     "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
-    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
-    "applicationInsightsLocation": "[if(contains(createArray('germanywestcentral', 'norwayeast', 'switzerlandnorth', 'uaenorth'), parameters('location')), 'westeurope', parameters('location'))]"
+    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
   },
   "resources": [
     {
@@ -122,12 +77,7 @@
       "kind": "StorageV2",
       "properties": {
         "supportsHttpsTrafficOnly": true,
-        "minimumTlsVersion": "TLS1_2",
-        "allowBlobPublicAccess": false,
-        "networkAcls": {
-          "defaultAction": "Allow",
-          "bypass": "AzureServices"
-        }
+        "minimumTlsVersion": "TLS1_2"
       }
     },
     {
@@ -136,8 +86,7 @@
       "name": "[concat(parameters('storageAccountName'), '/default')]",
       "dependsOn": [
         "[variables('storageAccountId')]"
-      ],
-      "properties": {}
+      ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
@@ -147,20 +96,17 @@
         "[resourceId('Microsoft.Storage/storageAccounts/fileServices', parameters('storageAccountName'), 'default')]"
       ],
       "properties": {
-        "shareQuota": 5120,
-        "enabledProtocols": "SMB"
+        "shareQuota": 5120
       }
     },
     {
       "type": "Microsoft.Insights/components",
       "apiVersion": "2020-02-02",
       "name": "[variables('applicationInsightsName')]",
-      "location": "[variables('applicationInsightsLocation')]",
+      "location": "[parameters('location')]",
       "kind": "web",
       "properties": {
-        "Application_Type": "web",
-        "publicNetworkAccessForIngestion": "Enabled",
-        "publicNetworkAccessForQuery": "Enabled"
+        "Application_Type": "web"
       }
     },
     {
@@ -169,24 +115,11 @@
       "name": "[variables('hostingPlanName')]",
       "location": "[parameters('location')]",
       "sku": {
-        "name": "[parameters('skuName')]",
-        "tier": "[parameters('skuTier')]",
-        "size": "[parameters('skuName')]",
-        "family": "[if(equals(parameters('skuTier'), 'Dynamic'), 'Y', 'EP')]",
-        "capacity": 0
+        "name": "Y1",
+        "tier": "Dynamic"
       },
-      "kind": "functionapp",
       "properties": {
-        "perSiteScaling": false,
-        "elasticScaleEnabled": false,
-        "maximumElasticWorkerCount": 1,
-        "isSpot": false,
-        "reserved": true,
-        "isXenon": false,
-        "hyperV": false,
-        "targetWorkerCount": 0,
-        "targetWorkerSizeId": 0,
-        "zoneRedundant": false
+        "reserved": true
       }
     },
     {
@@ -203,13 +136,6 @@
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "siteConfig": {
-          "numberOfWorkers": 1,
-          "linuxFxVersion": "python|3.11",
-          "acrUseManagedIdentityCreds": false,
-          "alwaysOn": false,
-          "http20Enabled": false,
-          "functionAppScaleLimit": 200,
-          "minimumElasticInstanceCount": 0,
           "appSettings": [
             {
               "name": "AzureWebJobsStorage",
@@ -228,20 +154,8 @@
               "value": "~4"
             },
             {
-              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
-            },
-            {
-              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
-              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).ConnectionString]"
-            },
-            {
               "name": "FUNCTIONS_WORKER_RUNTIME",
               "value": "python"
-            },
-            {
-              "name": "WEBSITE_NODE_DEFAULT_VERSION",
-              "value": "~14"
             },
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
@@ -254,6 +168,14 @@
             {
               "name": "ENABLE_ORYX_BUILD",
               "value": "true"
+            },
+            {
+              "name": "PROJECT",
+              "value": "azure-function-app"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
             },
             {
               "name": "AZURE_OPENAI_API_KEY",
@@ -280,50 +202,34 @@
               "value": "Enterprise AI assistant integrated with Microsoft 365"
             }
           ],
-          "ftpsState": "FtpsOnly",
-          "minTlsVersion": "1.2",
-          "scmMinTlsVersion": "1.2",
+          "linuxFxVersion": "python|3.11",
           "cors": {
             "allowedOrigins": ["*"],
             "supportCredentials": false
           },
           "use32BitWorkerProcess": false,
-          "webSocketsEnabled": false,
-          "managedPipelineMode": "Integrated",
-          "virtualApplications": [
-            {
-              "virtualPath": "/",
-              "physicalPath": "site\\wwwroot",
-              "preloadEnabled": false
-            }
-          ],
-          "loadBalancing": "LeastRequests",
-          "experiments": {
-            "rampUpRules": []
-          },
-          "autoHealEnabled": false,
-          "vnetRouteAllEnabled": false,
-          "vnetPrivatePortsCount": 0,
-          "publicNetworkAccess": "Enabled",
-          "httpLoggingEnabled": false,
-          "detailedErrorLoggingEnabled": false,
-          "scmType": "None",
           "remoteDebuggingEnabled": false,
           "remoteDebuggingVersion": "VS2022"
         },
-        "scmSiteAlsoStopped": false,
-        "clientAffinityEnabled": false,
-        "clientCertEnabled": false,
-        "clientCertMode": "Required",
-        "hostNamesDisabled": false,
-        "containerSize": 1536,
-        "dailyMemoryTimeQuota": 0,
-        "httpsOnly": true,
-        "redundancyMode": "None",
-        "publicNetworkAccess": "Enabled",
-        "storageAccountRequired": false,
-        "keyVaultReferenceIdentity": "SystemAssigned"
-      }
+        "httpsOnly": true
+      },
+      "resources": [
+        {
+          "type": "sourcecontrols",
+          "apiVersion": "2022-03-01",
+          "name": "web",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+          ],
+          "properties": {
+            "repoUrl": "[parameters('repoUrl')]",
+            "branch": "[parameters('branch')]",
+            "isManualIntegration": true,
+            "deploymentRollbackEnabled": false,
+            "isMercurial": false
+          }
+        }
+      ]
     }
   ],
   "outputs": {
@@ -339,17 +245,9 @@
       "type": "string",
       "value": "[concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function')]"
     },
-    "deploymentInstructions": {
+    "instructions": {
       "type": "string",
-      "value": "IMPORTANT: You must now deploy your code! Use one of these methods: 1) ZIP Deploy: Create a zip of azure-function-app folder and deploy using Azure CLI, 2) VS Code: Install Azure Functions extension and deploy, 3) GitHub Actions: Set up CI/CD. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
-    },
-    "selectedRegion": {
-      "type": "string",
-      "value": "[parameters('location')]"
-    },
-    "selectedSku": {
-      "type": "string",
-      "value": "[concat(parameters('skuName'), ' - ', parameters('skuTier'))]"
+      "value": "Deployment complete! Resources created and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }

@@ -1,10 +1,8 @@
-# 🤖 Copilot Agent 365 - Azure AI Chatbot with Memory
+## 🚀 One-Click Deploy Everything
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fkody-w%2FCopilot-Agent-365%2Fmain%2Fazuredeploy.json)
-[![Use this template](https://img.shields.io/badge/Use%20this%20template-green?style=for-the-badge)](https://github.com/kody-w/Copilot-Agent-365/generate)
-[![GitHub stars](https://img.shields.io/github/stars/kody-w/Copilot-Agent-365?style=social)](https://github.com/kody-w/Copilot-Agent-365)
 
-> 🚀 One-click deployment of an enterprise-ready AI assistant with persistent memory, powered by Azure OpenAI and designed for Microsoft 365 integration!
+Click once. Enter OpenAI credentials. Everything deploys automatically - resources AND code!
 
 ## ✨ Features
 
