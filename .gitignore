@@ -16,7 +16,7 @@ local.settings.json
 func-cli/
 
 # IDE
-.vscode/
+
 .idea/
 *.swp
 *.swo

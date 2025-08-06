@@ -91,7 +91,7 @@
     "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
     "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
     "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]",
-    "packageUri": "[concat(parameters('repoUrl'), '/archive/refs/heads/', parameters('branch'), '.zip')]"
+    "packageUri": "https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip"
   },
   "resources": [
     {
@@ -236,14 +236,6 @@
               "value": "[variables('packageUri')]"
             },
             {
-              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-              "value": "false"
-            },
-            {
-              "name": "ENABLE_ORYX_BUILD",
-              "value": "false"
-            },
-            {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
               "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
             },
@@ -310,13 +302,9 @@
       "type": "string",
       "value": "Key stored securely in Function App settings"
     },
-    "githubActionsSetup": {
-      "type": "string",
-      "value": "To enable automatic deployments: 1) Go to Function App > Deployment Center, 2) Choose GitHub, 3) Select GitHub Actions, 4) Authorize and configure"
-    },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Azure resources created and code deployment initiated from GitHub. The function will be available in 2-3 minutes. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
+      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys. Note: Initial deployment may take 2-3 minutes to become active."
     }
   }
 }
