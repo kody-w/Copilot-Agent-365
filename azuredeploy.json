@@ -309,7 +309,7 @@
           "detailedErrorLoggingEnabled": false,
           "scmType": "None",
           "remoteDebuggingEnabled": false,
-          "remoteDebuggingVersion": "VS2019"
+          "remoteDebuggingVersion": "VS2022"
         },
         "scmSiteAlsoStopped": false,
         "clientAffinityEnabled": false,
