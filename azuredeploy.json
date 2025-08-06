@@ -77,9 +77,8 @@
     "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
     "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
     "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]",
-    "functionCode": {
-      "host.json": "{\"version\": \"2.0\", \"logging\": {\"applicationInsights\": {\"samplingSettings\": {\"isEnabled\": true, \"excludedTypes\": \"Request\"}}}, \"extensionBundle\": {\"id\": \"Microsoft.Azure.Functions.ExtensionBundle\", \"version\": \"[3.*, 4.0.0)\"}}"
-    }
+    "containerGroupName": "[concat(parameters('functionAppName'), '-deployer')]",
+    "deploymentScriptName": "[concat(parameters('functionAppName'), '-deploy-script')]"
   },
   "resources": [
     {
@@ -188,6 +187,9 @@
       "name": "[parameters('functionAppName')]",
       "location": "[parameters('location')]",
       "kind": "functionapp,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "[variables('storageAccountId')]",
@@ -279,19 +281,32 @@
     {
       "type": "Microsoft.Resources/deploymentScripts",
       "apiVersion": "2020-10-01",
-      "name": "[concat(parameters('functionAppName'), '-deployment')]",
+      "name": "[variables('deploymentScriptName')]",
       "location": "[parameters('location')]",
       "kind": "AzureCLI",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('functionAppName'), '-identity'))]": {}
+        }
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('functionAppName'), '-identity'))]"
       ],
       "properties": {
         "azCliVersion": "2.37.0",
         "timeout": "PT30M",
         "retentionInterval": "P1D",
         "cleanupPreference": "OnSuccess",
-        "scriptContent": "[concat('az functionapp deployment source config-zip --resource-group ', resourceGroup().name, ' --name ', parameters('functionAppName'), ' --src https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip --build-remote true --timeout 600')]"
+        "scriptContent": "#!/bin/bash\nset -e\n\necho \"Downloading repository...\"\nwget https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip -O function.zip\n\necho \"Getting publish credentials...\"\nPUBLISH_URL=$(az webapp deployment list-publishing-credentials --name copilot365-y7ptuxmd2ypha --resource-group asdfasdfasdfasdfasdf --query scmUri -o tsv)\n\necho \"Deploying to Function App...\"\ncurl -X POST \"${PUBLISH_URL}/api/zipdeploy\" \\\n  -H \"Content-Type: application/zip\" \\\n  --data-binary \"@function.zip\" \\\n  -u \"$copilot365-y7ptuxmd2ypha:$(az webapp deployment list-publishing-credentials --name copilot365-y7ptuxmd2ypha --resource-group asdfasdfasdfasdfasdf --query publishingPassword -o tsv)\"\n\necho \"Deployment complete!\""
       }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2018-11-30",
+      "name": "[concat(parameters('functionAppName'), '-identity')]",
+      "location": "[parameters('location')]"
     }
   ],
   "outputs": {
@@ -311,13 +326,9 @@
       "type": "string",
       "value": "[reference(variables('openAIResourceId')).endpoint]"
     },
-    "openAIKey": {
-      "type": "string",
-      "value": "Key stored securely in Function App settings"
-    },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
+      "value": "🎉 COMPLETE! Infrastructure deployed and code deployment initiated. Wait 2-3 minutes for code to be fully deployed. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }
