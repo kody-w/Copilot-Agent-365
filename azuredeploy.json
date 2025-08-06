@@ -308,13 +308,35 @@
       "type": "string",
       "value": "[resourceGroup().name]"
     },
-    "deploymentInstructions": {
-      "type": "string",
-      "value": "NEXT STEP: Deploy your code! Run this command from the azure-function-app folder: az functionapp deployment source config-zip --resource-group YOUR_RG --name YOUR_FUNCTION_APP --src deploy.zip"
-    },
     "quickDeployCommand": {
       "type": "string",
-      "value": "[concat('cd azure-function-app && zip -r deploy.zip . -x \"*.git*\" && az functionapp deployment source config-zip --resource-group ', resourceGroup().name, ' --name ', parameters('functionAppName'), ' --src deploy.zip')]"
+      "value": "[concat('git clone https://github.com/kody-w/Copilot-Agent-365.git && cd Copilot-Agent-365 && zip -r deploy.zip . -x \"*.git*\" && az functionapp deployment source config-zip --resource-group ', resourceGroup().name, ' --name ', parameters('functionAppName'), ' --src deploy.zip')]"
+    },
+    "localSettingsJson": {
+      "type": "string",
+      "value": "[concat('{\n  \"IsEncrypted\": false,\n  \"Values\": {\n    \"AzureWebJobsStorage\": \"', concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value), '\",\n    \"FUNCTIONS_WORKER_RUNTIME\": \"python\",\n    \"AZURE_OPENAI_API_KEY\": \"', listKeys(variables('openAIResourceId'), '2023-05-01').key1, '\",\n    \"AZURE_OPENAI_ENDPOINT\": \"', reference(variables('openAIResourceId')).endpoint, '\",\n    \"AZURE_OPENAI_API_VERSION\": \"2024-02-01\",\n    \"AZURE_FILES_SHARE_NAME\": \"', variables('fileShareName'), '\",\n    \"ASSISTANT_NAME\": \"Copilot Agent 365\",\n    \"CHARACTERISTIC_DESCRIPTION\": \"Enterprise AI assistant integrated with Microsoft 365\"\n  }\n}')]"
+    },
+    "createLocalSettingsCommand": {
+      "type": "string",
+      "value": "[concat('echo ''', replace(replace(concat('{\n  \"IsEncrypted\": false,\n  \"Values\": {\n    \"AzureWebJobsStorage\": \"', concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value), '\",\n    \"FUNCTIONS_WORKER_RUNTIME\": \"python\",\n    \"AZURE_OPENAI_API_KEY\": \"', listKeys(variables('openAIResourceId'), '2023-05-01').key1, '\",\n    \"AZURE_OPENAI_ENDPOINT\": \"', reference(variables('openAIResourceId')).endpoint, '\",\n    \"AZURE_OPENAI_API_VERSION\": \"2024-02-01\",\n    \"AZURE_FILES_SHARE_NAME\": \"', variables('fileShareName'), '\",\n    \"ASSISTANT_NAME\": \"Copilot Agent 365\",\n    \"CHARACTERISTIC_DESCRIPTION\": \"Enterprise AI assistant integrated with Microsoft 365\"\n  }\n}'), '''', ''''''), '\"', '\\\"'), ''' > local.settings.json')]"
+    },
+    "deploymentInstructions": {
+      "type": "string",
+      "value": "🚀 DEPLOYMENT STEPS:\n1. Copy and run the 'quickDeployCommand' above\n2. Or save the 'localSettingsJson' content to a file named 'local.settings.json' for local testing\n3. Get your function key from: Azure Portal → Function App → Functions → main → Function Keys"
+    },
+    "testCommand": {
+      "type": "string",
+      "value": "[concat('curl -X POST ', concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function'), ' -H \"Content-Type: application/json\" -d ''{\"user_input\":\"Hello\",\"conversation_history\":[]}''')]"
+    },
+    "allConnectionStrings": {
+      "type": "object",
+      "value": {
+        "storageConnection": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value)]",
+        "openAIKey": "[listKeys(variables('openAIResourceId'), '2023-05-01').key1]",
+        "openAIEndpoint": "[reference(variables('openAIResourceId')).endpoint]",
+        "appInsightsKey": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]",
+        "appInsightsConnectionString": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).ConnectionString]"
+      }
     }
   }
 }
