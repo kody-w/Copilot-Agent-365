@@ -285,7 +285,7 @@
           "scmMinTlsVersion": "1.2",
           "cors": {
             "allowedOrigins": ["*"],
-            "supportCredentials": true
+            "supportCredentials": false
           },
           "use32BitWorkerProcess": false,
           "webSocketsEnabled": false,
