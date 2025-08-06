@@ -68,6 +68,20 @@
       "metadata": {
         "description": "Location for all resources (must support Azure OpenAI). Default: East US"
       }
+    },
+    "repoUrl": {
+      "type": "string",
+      "defaultValue": "https://github.com/kody-w/Copilot-Agent-365",
+      "metadata": {
+        "description": "GitHub repository URL (automatically deploys code)"
+      }
+    },
+    "branch": {
+      "type": "string",
+      "defaultValue": "main",
+      "metadata": {
+        "description": "GitHub branch to deploy from"
+      }
     }
   },
   "variables": {
@@ -77,30 +91,9 @@
     "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
     "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
     "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]",
-    "deploymentScriptName": "[concat(parameters('functionAppName'), '-deploy-script')]",
-    "identityName": "[concat(parameters('functionAppName'), '-identity')]",
-    "roleAssignmentName": "[guid(concat(resourceGroup().id, 'contributor'))]"
+    "packageUri": "[concat(parameters('repoUrl'), '/archive/refs/heads/', parameters('branch'), '.zip')]"
   },
   "resources": [
-    {
-      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-      "apiVersion": "2018-11-30",
-      "name": "[variables('identityName')]",
-      "location": "[parameters('location')]"
-    },
-    {
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2020-04-01-preview",
-      "name": "[variables('roleAssignmentName')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
-      ],
-      "properties": {
-        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]",
-        "scope": "[resourceGroup().id]"
-      }
-    },
     {
       "type": "Microsoft.CognitiveServices/accounts",
       "apiVersion": "2023-05-01",
@@ -207,9 +200,6 @@
       "name": "[parameters('functionAppName')]",
       "location": "[parameters('location')]",
       "kind": "functionapp,linux",
-      "identity": {
-        "type": "SystemAssigned"
-      },
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "[variables('storageAccountId')]",
@@ -243,15 +233,15 @@
             },
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "0"
+              "value": "[variables('packageUri')]"
             },
             {
               "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-              "value": "true"
+              "value": "false"
             },
             {
               "name": "ENABLE_ORYX_BUILD",
-              "value": "true"
+              "value": "false"
             },
             {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -297,31 +287,6 @@
         },
         "httpsOnly": true
       }
-    },
-    {
-      "type": "Microsoft.Resources/deploymentScripts",
-      "apiVersion": "2020-10-01",
-      "name": "[variables('deploymentScriptName')]",
-      "location": "[parameters('location')]",
-      "kind": "AzureCLI",
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": {
-          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]": {}
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
-        "[variables('roleAssignmentName')]"
-      ],
-      "properties": {
-        "azCliVersion": "2.50.0",
-        "timeout": "PT30M",
-        "retentionInterval": "P1D",
-        "cleanupPreference": "OnSuccess",
-        "scriptContent": "[concat('#!/bin/bash\nset -e\n\nFUNCTION_APP_NAME=\"', parameters('functionAppName'), '\"\nRESOURCE_GROUP=\"', resourceGroup().name, '\"\n\necho \"Downloading repository...\"\nwget https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip -O function.zip\n\necho \"Waiting for Function App to be ready...\"\nsleep 30\n\necho \"Deploying to Function App...\"\naz functionapp deployment source config-zip --resource-group $RESOURCE_GROUP --name $FUNCTION_APP_NAME --src function.zip --timeout 600\n\necho \"Deployment complete!\"')]"
-      }
     }
   ],
   "outputs": {
@@ -341,9 +306,17 @@
       "type": "string",
       "value": "[reference(variables('openAIResourceId')).endpoint]"
     },
+    "openAIKey": {
+      "type": "string",
+      "value": "Key stored securely in Function App settings"
+    },
+    "githubActionsSetup": {
+      "type": "string",
+      "value": "To enable automatic deployments: 1) Go to Function App > Deployment Center, 2) Choose GitHub, 3) Select GitHub Actions, 4) Authorize and configure"
+    },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Infrastructure deployed and code deployment initiated. Wait 3-5 minutes for code to be fully deployed and built. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
+      "value": "🎉 COMPLETE! Azure resources created and code deployment initiated from GitHub. The function will be available in 2-3 minutes. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }
