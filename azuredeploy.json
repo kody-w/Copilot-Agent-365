@@ -77,10 +77,30 @@
     "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
     "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
     "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]",
-    "containerGroupName": "[concat(parameters('functionAppName'), '-deployer')]",
-    "deploymentScriptName": "[concat(parameters('functionAppName'), '-deploy-script')]"
+    "deploymentScriptName": "[concat(parameters('functionAppName'), '-deploy-script')]",
+    "identityName": "[concat(parameters('functionAppName'), '-identity')]",
+    "roleAssignmentName": "[guid(concat(resourceGroup().id, 'contributor'))]"
   },
   "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2018-11-30",
+      "name": "[variables('identityName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[variables('roleAssignmentName')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))).principalId]",
+        "scope": "[resourceGroup().id]"
+      }
+    },
     {
       "type": "Microsoft.CognitiveServices/accounts",
       "apiVersion": "2023-05-01",
@@ -287,26 +307,21 @@
       "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {
-          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('functionAppName'), '-identity'))]": {}
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]": {}
         }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('functionAppName'), '-identity'))]"
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
+        "[variables('roleAssignmentName')]"
       ],
       "properties": {
-        "azCliVersion": "2.37.0",
+        "azCliVersion": "2.50.0",
         "timeout": "PT30M",
         "retentionInterval": "P1D",
         "cleanupPreference": "OnSuccess",
-        "scriptContent": "#!/bin/bash\nset -e\n\necho \"Downloading repository...\"\nwget https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip -O function.zip\n\necho \"Getting publish credentials...\"\nPUBLISH_URL=$(az webapp deployment list-publishing-credentials --name copilot365-y7ptuxmd2ypha --resource-group asdfasdfasdfasdfasdf --query scmUri -o tsv)\n\necho \"Deploying to Function App...\"\ncurl -X POST \"${PUBLISH_URL}/api/zipdeploy\" \\\n  -H \"Content-Type: application/zip\" \\\n  --data-binary \"@function.zip\" \\\n  -u \"$copilot365-y7ptuxmd2ypha:$(az webapp deployment list-publishing-credentials --name copilot365-y7ptuxmd2ypha --resource-group asdfasdfasdfasdfasdf --query publishingPassword -o tsv)\"\n\necho \"Deployment complete!\""
+        "scriptContent": "[concat('#!/bin/bash\nset -e\n\nFUNCTION_APP_NAME=\"', parameters('functionAppName'), '\"\nRESOURCE_GROUP=\"', resourceGroup().name, '\"\n\necho \"Downloading repository...\"\nwget https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip -O function.zip\n\necho \"Waiting for Function App to be ready...\"\nsleep 30\n\necho \"Deploying to Function App...\"\naz functionapp deployment source config-zip --resource-group $RESOURCE_GROUP --name $FUNCTION_APP_NAME --src function.zip --timeout 600\n\necho \"Deployment complete!\"')]"
       }
-    },
-    {
-      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-      "apiVersion": "2018-11-30",
-      "name": "[concat(parameters('functionAppName'), '-identity')]",
-      "location": "[parameters('location')]"
     }
   ],
   "outputs": {
@@ -328,7 +343,7 @@
     },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Infrastructure deployed and code deployment initiated. Wait 2-3 minutes for code to be fully deployed. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
+      "value": "🎉 COMPLETE! Infrastructure deployed and code deployment initiated. Wait 3-5 minutes for code to be fully deployed and built. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }
