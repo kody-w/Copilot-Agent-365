@@ -41,7 +41,7 @@
     },
     "location": {
       "type": "string",
-      "defaultValue": "[resourceGroup().location]",
+      "defaultValue": "eastus",
       "allowedValues": [
         "eastus",
         "eastus2",
@@ -59,7 +59,7 @@
         "uksouth"
       ],
       "metadata": {
-        "description": "Location for all resources (must support Azure OpenAI)"
+        "description": "Location for all resources (must support Azure OpenAI). Default: East US"
       }
     },
     "repoUrl": {
