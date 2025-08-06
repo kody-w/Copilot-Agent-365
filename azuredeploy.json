@@ -68,20 +68,6 @@
       "metadata": {
         "description": "Location for all resources (must support Azure OpenAI). Default: East US"
       }
-    },
-    "repoUrl": {
-      "type": "string",
-      "defaultValue": "https://github.com/kody-w/Copilot-Agent-365",
-      "metadata": {
-        "description": "GitHub repository URL (automatically deploys code)"
-      }
-    },
-    "branch": {
-      "type": "string",
-      "defaultValue": "main",
-      "metadata": {
-        "description": "GitHub branch to deploy from"
-      }
     }
   },
   "variables": {
@@ -91,7 +77,9 @@
     "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
     "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
     "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]",
-    "packageUri": "https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip"
+    "functionCode": {
+      "host.json": "{\"version\": \"2.0\", \"logging\": {\"applicationInsights\": {\"samplingSettings\": {\"isEnabled\": true, \"excludedTypes\": \"Request\"}}}, \"extensionBundle\": {\"id\": \"Microsoft.Azure.Functions.ExtensionBundle\", \"version\": \"[3.*, 4.0.0)\"}}"
+    }
   },
   "resources": [
     {
@@ -233,7 +221,15 @@
             },
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "[variables('packageUri')]"
+              "value": "0"
+            },
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "true"
+            },
+            {
+              "name": "ENABLE_ORYX_BUILD",
+              "value": "true"
             },
             {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -279,6 +275,23 @@
         },
         "httpsOnly": true
       }
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2020-10-01",
+      "name": "[concat(parameters('functionAppName'), '-deployment')]",
+      "location": "[parameters('location')]",
+      "kind": "AzureCLI",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+      ],
+      "properties": {
+        "azCliVersion": "2.37.0",
+        "timeout": "PT30M",
+        "retentionInterval": "P1D",
+        "cleanupPreference": "OnSuccess",
+        "scriptContent": "[concat('az functionapp deployment source config-zip --resource-group ', resourceGroup().name, ' --name ', parameters('functionAppName'), ' --src https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip --build-remote true --timeout 600')]"
+      }
     }
   ],
   "outputs": {
@@ -304,7 +317,7 @@
     },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys. Note: Initial deployment may take 2-3 minutes to become active."
+      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }
