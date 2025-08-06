@@ -17,30 +17,49 @@
         "description": "Storage Account Name (3-24 characters, lowercase and numbers only)"
       }
     },
-    "openAIApiKey": {
-      "type": "securestring",
+    "openAIServiceName": {
+      "type": "string",
+      "defaultValue": "[concat('openai-', uniqueString(resourceGroup().id))]",
       "metadata": {
-        "description": "Your Azure OpenAI API Key"
+        "description": "Name for the Azure OpenAI Service (will be created for you)"
       }
     },
-    "openAIEndpoint": {
+    "openAIModelDeploymentName": {
       "type": "string",
+      "defaultValue": "gpt-4",
       "metadata": {
-        "description": "Your Azure OpenAI Endpoint (e.g., https://your-resource.openai.azure.com/)"
+        "description": "Name for the GPT-4 model deployment"
       }
     },
-    "openAIApiVersion": {
+    "openAISku": {
       "type": "string",
-      "defaultValue": "2024-02-01",
+      "defaultValue": "S0",
+      "allowedValues": ["S0"],
       "metadata": {
-        "description": "Azure OpenAI API Version"
+        "description": "SKU for Azure OpenAI Service"
       }
     },
     "location": {
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
+      "allowedValues": [
+        "eastus",
+        "eastus2",
+        "northcentralus",
+        "southcentralus",
+        "westus",
+        "westus3",
+        "australiaeast",
+        "canadaeast",
+        "francecentral",
+        "japaneast",
+        "norwayeast",
+        "swedencentral",
+        "switzerlandnorth",
+        "uksouth"
+      ],
       "metadata": {
-        "description": "Location for all resources"
+        "description": "Location for all resources (must support Azure OpenAI)"
       }
     },
     "repoUrl": {
@@ -63,9 +82,45 @@
     "applicationInsightsName": "[concat(parameters('functionAppName'), '-insights')]",
     "fileShareName": "azfbusinessbot3c92ab",
     "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
-    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+    "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]"
   },
   "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('openAIServiceName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('openAISku')]"
+      },
+      "kind": "OpenAI",
+      "properties": {
+        "customSubDomainName": "[parameters('openAIServiceName')]",
+        "networkAcls": {
+          "defaultAction": "Allow"
+        },
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(parameters('openAIServiceName'), '/', parameters('openAIModelDeploymentName'))]",
+      "dependsOn": [
+        "[variables('openAIResourceId')]"
+      ],
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-4",
+          "version": "0613"
+        },
+        "scaleSettings": {
+          "scaleType": "Standard"
+        }
+      }
+    },
     {
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2022-09-01",
@@ -131,7 +186,8 @@
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "[variables('storageAccountId')]",
-        "[resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))]"
+        "[resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))]",
+        "[variables('openAIResourceId')]"
       ],
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
@@ -179,15 +235,15 @@
             },
             {
               "name": "AZURE_OPENAI_API_KEY",
-              "value": "[parameters('openAIApiKey')]"
+              "value": "[listKeys(variables('openAIResourceId'), '2023-05-01').key1]"
             },
             {
               "name": "AZURE_OPENAI_ENDPOINT",
-              "value": "[parameters('openAIEndpoint')]"
+              "value": "[reference(variables('openAIResourceId')).endpoint]"
             },
             {
               "name": "AZURE_OPENAI_API_VERSION",
-              "value": "[parameters('openAIApiVersion')]"
+              "value": "2024-02-01"
             },
             {
               "name": "AZURE_FILES_SHARE_NAME",
@@ -245,9 +301,17 @@
       "type": "string",
       "value": "[concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function')]"
     },
+    "openAIEndpoint": {
+      "type": "string",
+      "value": "[reference(variables('openAIResourceId')).endpoint]"
+    },
+    "openAIKey": {
+      "type": "string",
+      "value": "Key stored securely in Function App settings"
+    },
     "instructions": {
       "type": "string",
-      "value": "Deployment complete! Resources created and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
+      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }
