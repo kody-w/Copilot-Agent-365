@@ -121,6 +121,10 @@
         "model": {
           "format": "OpenAI",
           "name": "[parameters('openAIModelName')]"
+        },
+        "sku": {
+          "name": "Standard",
+          "capacity": 10
         }
       }
     },
@@ -199,6 +203,9 @@
       "name": "[parameters('functionAppName')]",
       "location": "[parameters('location')]",
       "kind": "functionapp,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "[variables('storageAccountId')]",
@@ -232,15 +239,15 @@
             },
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "0"
+              "value": "https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip"
             },
             {
               "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-              "value": "true"
+              "value": "false"
             },
             {
               "name": "ENABLE_ORYX_BUILD",
-              "value": "true"
+              "value": "false"
             },
             {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -281,25 +288,11 @@
             "supportCredentials": false
           },
           "use32BitWorkerProcess": false,
+          "ftpsState": "FtpsOnly",
           "remoteDebuggingEnabled": false,
           "remoteDebuggingVersion": "VS2022"
         },
         "httpsOnly": true
-      }
-    },
-    {
-      "type": "Microsoft.Web/sites/sourcecontrols",
-      "apiVersion": "2022-03-01",
-      "name": "[concat(parameters('functionAppName'), '/web')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
-      ],
-      "properties": {
-        "repoUrl": "[parameters('repoUrl')]",
-        "branch": "[parameters('branch')]",
-        "isManualIntegration": true,
-        "deploymentRollbackEnabled": false,
-        "isMercurial": false
       }
     }
   ],
@@ -326,7 +319,7 @@
     },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
+      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured. Your code will deploy from GitHub ZIP package. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }
