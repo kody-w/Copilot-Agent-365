@@ -203,7 +203,8 @@
         "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "[variables('storageAccountId')]",
         "[resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))]",
-        "[variables('openAIResourceId')]"
+        "[variables('openAIResourceId')]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('openAIServiceName'), 'gpt-deployment')]"
       ],
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
@@ -242,10 +243,6 @@
               "value": "true"
             },
             {
-              "name": "PROJECT",
-              "value": "azure-function-app"
-            },
-            {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
               "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
             },
@@ -260,6 +257,10 @@
             {
               "name": "AZURE_OPENAI_API_VERSION",
               "value": "2024-02-01"
+            },
+            {
+              "name": "AZURE_OPENAI_DEPLOYMENT_NAME",
+              "value": "gpt-deployment"
             },
             {
               "name": "AZURE_FILES_SHARE_NAME",
@@ -284,24 +285,49 @@
           "remoteDebuggingVersion": "VS2022"
         },
         "httpsOnly": true
-      },
-      "resources": [
-        {
-          "type": "sourcecontrols",
-          "apiVersion": "2022-03-01",
-          "name": "web",
-          "dependsOn": [
-            "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
-          ],
-          "properties": {
-            "repoUrl": "[parameters('repoUrl')]",
-            "branch": "[parameters('branch')]",
-            "isManualIntegration": true,
-            "deploymentRollbackEnabled": false,
-            "isMercurial": false
-          }
-        }
-      ]
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/sourcecontrols",
+      "apiVersion": "2022-03-01",
+      "name": "[concat(parameters('functionAppName'), '/web')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.Web/sites/config', parameters('functionAppName'), 'appsettings')]"
+      ],
+      "properties": {
+        "repoUrl": "[parameters('repoUrl')]",
+        "branch": "[parameters('branch')]",
+        "isManualIntegration": true,
+        "deploymentRollbackEnabled": false,
+        "isMercurial": false
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2022-03-01",
+      "name": "[concat(parameters('functionAppName'), '/appsettings')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+      ],
+      "properties": {
+        "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value)]",
+        "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value)]",
+        "WEBSITE_CONTENTSHARE": "[toLower(parameters('functionAppName'))]",
+        "FUNCTIONS_EXTENSION_VERSION": "~4",
+        "FUNCTIONS_WORKER_RUNTIME": "python",
+        "WEBSITE_RUN_FROM_PACKAGE": "0",
+        "SCM_DO_BUILD_DURING_DEPLOYMENT": "true",
+        "ENABLE_ORYX_BUILD": "true",
+        "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]",
+        "AZURE_OPENAI_API_KEY": "[listKeys(variables('openAIResourceId'), '2023-05-01').key1]",
+        "AZURE_OPENAI_ENDPOINT": "[reference(variables('openAIResourceId')).endpoint]",
+        "AZURE_OPENAI_API_VERSION": "2024-02-01",
+        "AZURE_OPENAI_DEPLOYMENT_NAME": "gpt-deployment",
+        "AZURE_FILES_SHARE_NAME": "[variables('fileShareName')]",
+        "ASSISTANT_NAME": "Copilot Agent 365",
+        "CHARACTERISTIC_DESCRIPTION": "Enterprise AI assistant integrated with Microsoft 365"
+      }
     }
   ],
   "outputs": {
@@ -321,13 +347,17 @@
       "type": "string",
       "value": "[reference(variables('openAIResourceId')).endpoint]"
     },
-    "openAIKey": {
+    "openAIDeploymentName": {
       "type": "string",
-      "value": "Key stored securely in Function App settings"
+      "value": "gpt-deployment"
+    },
+    "deploymentStatus": {
+      "type": "string",
+      "value": "Deployment complete! If source control sync fails, configure it manually in Azure Portal > Function App > Deployment Center"
     },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
+      "value": "🎉 Infrastructure deployed! Next steps: 1) Check Deployment Center for GitHub sync status, 2) Get function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }
