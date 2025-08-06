@@ -200,6 +200,9 @@
       "name": "[parameters('functionAppName')]",
       "location": "[parameters('location')]",
       "kind": "functionapp,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "[variables('storageAccountId')]",
@@ -279,6 +282,41 @@
         },
         "httpsOnly": true
       }
+    },
+    {
+      "type": "Microsoft.Web/sites/functions",
+      "apiVersion": "2022-03-01",
+      "name": "[concat(parameters('functionAppName'), '/main')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+      ],
+      "properties": {
+        "config": {
+          "name": "main",
+          "entryPoint": "main",
+          "scriptFile": "function_app.py",
+          "language": "python",
+          "functionDirectory": "/home/site/wwwroot",
+          "bindings": [
+            {
+              "direction": "in",
+              "type": "httpTrigger",
+              "name": "req",
+              "authLevel": "function",
+              "methods": ["get", "post", "options"],
+              "route": "businessinsightbot_function"
+            },
+            {
+              "direction": "out",
+              "type": "http",
+              "name": "$return"
+            }
+          ]
+        },
+        "language": "python",
+        "isDisabled": false
+      }
     }
   ],
   "outputs": {
@@ -304,7 +342,7 @@
     },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys. Note: Initial deployment may take 2-3 minutes to become active."
+      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, function registered, and code deployed from GitHub. Get your function key from: Function App > Functions > main > Function Keys. Note: Initial deployment may take 2-3 minutes to become active."
     }
   }
 }
