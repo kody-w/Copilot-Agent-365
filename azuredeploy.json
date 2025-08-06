@@ -68,17 +68,6 @@
       "metadata": {
         "description": "Location for all resources (must support Azure OpenAI). Default: East US"
       }
-    },
-    "deploymentMethod": {
-      "type": "string",
-      "defaultValue": "zipDeploy",
-      "allowedValues": [
-        "zipDeploy",
-        "runFromPackage"
-      ],
-      "metadata": {
-        "description": "Deployment method: zipDeploy extracts files, runFromPackage runs from zip"
-      }
     }
   },
   "variables": {
@@ -87,8 +76,7 @@
     "fileShareName": "azfbusinessbot3c92ab",
     "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
     "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
-    "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]",
-    "packageUri": "https://github.com/kody-w/Copilot-Agent-365/releases/download/v1.0.0/function-app.zip"
+    "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]"
   },
   "resources": [
     {
@@ -236,6 +224,10 @@
               "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
             },
             {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).ConnectionString]"
+            },
+            {
               "name": "AZURE_OPENAI_API_KEY",
               "value": "[listKeys(variables('openAIResourceId'), '2023-05-01').key1]"
             },
@@ -270,6 +262,10 @@
             {
               "name": "ENABLE_ORYX_BUILD",
               "value": "true"
+            },
+            {
+              "name": "PYTHON_ENABLE_WORKER_EXTENSIONS",
+              "value": "1"
             }
           ],
           "linuxFxVersion": "python|3.11",
@@ -278,23 +274,12 @@
             "supportCredentials": false
           },
           "use32BitWorkerProcess": false,
-          "remoteDebuggingEnabled": false,
-          "remoteDebuggingVersion": "VS2022"
+          "functionAppScaleLimit": 200,
+          "minimumElasticInstanceCount": 0,
+          "ftpsState": "FtpsOnly",
+          "remoteDebuggingEnabled": false
         },
         "httpsOnly": true
-      }
-    },
-    {
-      "type": "Microsoft.Web/sites/sourcecontrols",
-      "apiVersion": "2022-03-01",
-      "name": "[concat(parameters('functionAppName'), '/web')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
-      ],
-      "properties": {
-        "repoUrl": "https://github.com/kody-w/Copilot-Agent-365",
-        "branch": "main",
-        "isManualIntegration": true
       }
     }
   ],
@@ -315,9 +300,21 @@
       "type": "string",
       "value": "[reference(variables('openAIResourceId')).endpoint]"
     },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[parameters('storageAccountName')]"
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[resourceGroup().name]"
+    },
     "deploymentInstructions": {
       "type": "string",
-      "value": "IMPORTANT: The Function App is created but needs code deployment. Please run: az functionapp deployment source config-zip --resource-group <your-rg> --name <function-app-name> --src <path-to-zip> OR use VS Code Azure Functions extension to deploy."
+      "value": "NEXT STEP: Deploy your code! Run this command from the azure-function-app folder: az functionapp deployment source config-zip --resource-group YOUR_RG --name YOUR_FUNCTION_APP --src deploy.zip"
+    },
+    "quickDeployCommand": {
+      "type": "string",
+      "value": "[concat('cd azure-function-app && zip -r deploy.zip . -x \"*.git*\" && az functionapp deployment source config-zip --resource-group ', resourceGroup().name, ' --name ', parameters('functionAppName'), ' --src deploy.zip')]"
     }
   }
 }
