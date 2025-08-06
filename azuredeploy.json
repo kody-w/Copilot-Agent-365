@@ -121,10 +121,6 @@
         "model": {
           "format": "OpenAI",
           "name": "[parameters('openAIModelName')]"
-        },
-        "sku": {
-          "name": "Standard",
-          "capacity": 10
         }
       }
     },
@@ -203,15 +199,11 @@
       "name": "[parameters('functionAppName')]",
       "location": "[parameters('location')]",
       "kind": "functionapp,linux",
-      "identity": {
-        "type": "SystemAssigned"
-      },
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "[variables('storageAccountId')]",
         "[resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))]",
-        "[variables('openAIResourceId')]",
-        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('openAIServiceName'), 'gpt-deployment')]"
+        "[variables('openAIResourceId')]"
       ],
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
@@ -239,15 +231,15 @@
             },
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "https://github.com/kody-w/Copilot-Agent-365/archive/refs/heads/main.zip"
+              "value": "0"
             },
             {
               "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-              "value": "false"
+              "value": "true"
             },
             {
               "name": "ENABLE_ORYX_BUILD",
-              "value": "false"
+              "value": "true"
             },
             {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -264,10 +256,6 @@
             {
               "name": "AZURE_OPENAI_API_VERSION",
               "value": "2024-02-01"
-            },
-            {
-              "name": "AZURE_OPENAI_DEPLOYMENT_NAME",
-              "value": "gpt-deployment"
             },
             {
               "name": "AZURE_FILES_SHARE_NAME",
@@ -288,12 +276,28 @@
             "supportCredentials": false
           },
           "use32BitWorkerProcess": false,
-          "ftpsState": "FtpsOnly",
           "remoteDebuggingEnabled": false,
           "remoteDebuggingVersion": "VS2022"
         },
         "httpsOnly": true
-      }
+      },
+      "resources": [
+        {
+          "type": "sourcecontrols",
+          "apiVersion": "2022-03-01",
+          "name": "web",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+          ],
+          "properties": {
+            "repoUrl": "[parameters('repoUrl')]",
+            "branch": "[parameters('branch')]",
+            "isManualIntegration": true,
+            "deploymentRollbackEnabled": false,
+            "isMercurial": false
+          }
+        }
+      ]
     }
   ],
   "outputs": {
@@ -319,7 +323,7 @@
     },
     "instructions": {
       "type": "string",
-      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured. Your code will deploy from GitHub ZIP package. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
+      "value": "🎉 COMPLETE! Azure OpenAI Service created, GPT-4 deployed, Function App configured, and code deployed from GitHub. Get your function key from: Function App > Functions > businessinsightbot_function > Function Keys"
     }
   }
 }
