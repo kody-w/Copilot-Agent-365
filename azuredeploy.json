@@ -24,11 +24,18 @@
         "description": "Name for the Azure OpenAI Service (will be created for you)"
       }
     },
-    "openAIModelDeploymentName": {
+    "openAIModelName": {
       "type": "string",
-      "defaultValue": "gpt-4",
+      "defaultValue": "gpt-4o",
+      "allowedValues": [
+        "gpt-35-turbo",
+        "gpt-4",
+        "gpt-4-32k",
+        "gpt-4o",
+        "gpt-4o-mini"
+      ],
       "metadata": {
-        "description": "Name for the GPT-4 model deployment"
+        "description": "Azure OpenAI model to deploy (gpt-4o is latest and recommended)"
       }
     },
     "openAISku": {
@@ -106,18 +113,14 @@
     {
       "type": "Microsoft.CognitiveServices/accounts/deployments",
       "apiVersion": "2023-05-01",
-      "name": "[concat(parameters('openAIServiceName'), '/', parameters('openAIModelDeploymentName'))]",
+      "name": "[concat(parameters('openAIServiceName'), '/gpt-deployment')]",
       "dependsOn": [
         "[variables('openAIResourceId')]"
       ],
       "properties": {
         "model": {
           "format": "OpenAI",
-          "name": "gpt-4",
-          "version": "0613"
-        },
-        "scaleSettings": {
-          "scaleType": "Standard"
+          "name": "[parameters('openAIModelName')]"
         }
       }
     },
@@ -171,10 +174,23 @@
       "location": "[parameters('location')]",
       "sku": {
         "name": "Y1",
-        "tier": "Dynamic"
+        "tier": "Dynamic",
+        "size": "Y1",
+        "family": "Y",
+        "capacity": 0
       },
+      "kind": "functionapp",
       "properties": {
-        "reserved": true
+        "perSiteScaling": false,
+        "elasticScaleEnabled": false,
+        "maximumElasticWorkerCount": 1,
+        "isSpot": false,
+        "reserved": true,
+        "isXenon": false,
+        "hyperV": false,
+        "targetWorkerCount": 0,
+        "targetWorkerSizeId": 0,
+        "zoneRedundant": false
       }
     },
     {
