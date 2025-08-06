@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AZURE_OPENAI_API_KEY": "your-api-key-here",
+    "AZURE_OPENAI_ENDPOINT": "https://your-resource.openai.azure.com/",
+    "AZURE_OPENAI_API_VERSION": "2024-02-01",
+    "AZURE_FILES_SHARE_NAME": "azfbusinessbot3c92ab",
+    "ASSISTANT_NAME": "BusinessInsightBot",
+    "CHARACTERISTIC_DESCRIPTION": "helpful business assistant"
+  }
+}
