@@ -30,3 +30,7 @@ htmlcov/
 # Deployment
 *.zip
 deployment/
+.vscode/extensions.json
+.vscode/launch.json
+.vscode/settings.json
+.vscode/tasks.json

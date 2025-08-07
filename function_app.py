@@ -16,7 +16,7 @@ from utils.azure_file_storage import AzureFileStorageManager, safe_json_loads
 
 # Default GUID to use when no specific user GUID is provided
 # Memorable pattern related to "copilot" that follows UUID format rules
-DEFAULT_USER_GUID = "c0p110t0-aaaa-bbbb-cccc-123456789abc"
+DEFAULT_USER_GUID = "c0110700-def0-4u17-aaaa-123456789abc"
 
 def ensure_string_content(message):
     """
@@ -100,108 +100,8 @@ def load_agents_from_folder():
             logging.error(f"Error loading agent {file}: {str(e)}")
             continue
 
-    storage_manager = AzureFileStorageManager()
-    try:
-        agent_files = storage_manager.list_files('agents')
-        
-        for file in agent_files:
-            if not file.name.endswith('_agent.py'):
-                continue
-
-            try:
-                file_content = storage_manager.read_file('agents', file.name)
-                if file_content is None:
-                    continue
-
-                temp_dir = "/tmp/agents"
-                os.makedirs(temp_dir, exist_ok=True)
-                temp_file = f"{temp_dir}/{file.name}"
-
-                with open(temp_file, 'w') as f:
-                    f.write(file_content)
-
-                if temp_dir not in sys.path:
-                    sys.path.append(temp_dir)
-
-                module_name = file.name[:-3]
-                spec = importlib.util.spec_from_file_location(module_name, temp_file)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-
-                for name, obj in inspect.getmembers(module):
-                    if (inspect.isclass(obj) and
-                        issubclass(obj, BasicAgent) and
-                        obj is not BasicAgent):
-                        agent_instance = obj()
-                        declared_agents[agent_instance.name] = agent_instance
-
-                os.remove(temp_file)
-
-            except Exception as e:
-                logging.error(f"Error loading agent {file.name} from Azure File Share: {str(e)}")
-                continue
-
-    except Exception as e:
-        logging.error(f"Error loading agents from Azure File Share: {str(e)}")
-
-    # Load multi-agents from multi_agents folder
-    try:
-        multi_agent_files = storage_manager.list_files('multi_agents')
-        
-        for file in multi_agent_files:
-            if not file.name.endswith('_agent.py'):
-                continue
-
-            try:
-                file_content = storage_manager.read_file('multi_agents', file.name)
-                if file_content is None:
-                    continue
-
-                temp_dir = "/tmp/multi_agents"
-                os.makedirs(temp_dir, exist_ok=True)
-                temp_file = f"{temp_dir}/{file.name}"
-
-                with open(temp_file, 'w') as f:
-                    f.write(file_content)
-
-                if temp_dir not in sys.path:
-                    sys.path.append(temp_dir)
-
-                # Also add the parent directory to sys.path so imports work
-                parent_dir = "/tmp"
-                if parent_dir not in sys.path:
-                    sys.path.append(parent_dir)
-
-                module_name = file.name[:-3]
-                spec = importlib.util.spec_from_file_location(f"multi_agents.{module_name}", temp_file)
-                module = importlib.util.module_from_spec(spec)
-                
-                # Create the multi_agents package if it doesn't exist
-                import types
-                if 'multi_agents' not in sys.modules:
-                    multi_agents_module = types.ModuleType('multi_agents')
-                    sys.modules['multi_agents'] = multi_agents_module
-                
-                # Add the module to the multi_agents package
-                sys.modules[f"multi_agents.{module_name}"] = module
-                spec.loader.exec_module(module)
-
-                for name, obj in inspect.getmembers(module):
-                    if (inspect.isclass(obj) and
-                        issubclass(obj, BasicAgent) and
-                        obj is not BasicAgent):
-                        agent_instance = obj()
-                        declared_agents[agent_instance.name] = agent_instance
-                        logging.info(f"Loaded multi-agent: {agent_instance.name}")
-
-                os.remove(temp_file)
-
-            except Exception as e:
-                logging.error(f"Error loading multi-agent {file.name} from Azure File Share: {str(e)}")
-                continue
-
-    except Exception as e:
-        logging.error(f"Error loading multi-agents from Azure File Share: {str(e)}")
+    # Removed Azure File Share agent loading completely to prevent ResourceNotFound errors
+    # Agents are loaded only from the local agents folder
 
     return declared_agents
 
