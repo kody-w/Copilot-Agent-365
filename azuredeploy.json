@@ -337,6 +337,22 @@
         "appInsightsKey": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]",
         "appInsightsConnectionString": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).ConnectionString]"
       }
+    },
+    "functionAppMasterKey": {
+      "type": "string",
+      "value": "[listkeys(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/host/default'), '2022-03-01').masterKey]"
+    },
+    "functionAppDefaultKey": {
+      "type": "string",
+      "value": "[listkeys(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/host/default'), '2022-03-01').functionKeys.default]"
+    },
+    "functionUrlWithKey": {
+      "type": "string",
+      "value": "[concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function?code=', listkeys(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/host/default'), '2022-03-01').functionKeys.default)]"
+    },
+    "testCommandWithKey": {
+      "type": "string",
+      "value": "[concat('curl -X POST \"', concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function?code=', listkeys(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/host/default'), '2022-03-01').functionKeys.default), '\" -H \"Content-Type: application/json\" -d ''{\"user_input\":\"Hello\",\"conversation_history\":[]}''')]"
     }
   }
 }
