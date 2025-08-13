@@ -2,6 +2,50 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "functionAppName": {
+      "type": "string",
+      "defaultValue": "[concat('copilot365-', uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "Name of the Function App (must be globally unique)"
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "[concat('st', uniqueString(resourceGroup().id))]",
+      "maxLength": 24,
+      "metadata": {
+        "description": "Storage Account Name (3-24 characters, lowercase and numbers only)"
+      }
+    },
+    "openAIServiceName": {
+      "type": "string",
+      "defaultValue": "[concat('openai-', uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "Name for the Azure OpenAI Service (will be created for you)"
+      }
+    },
+    "openAIModelName": {
+      "type": "string",
+      "defaultValue": "gpt-4o",
+      "allowedValues": [
+        "gpt-35-turbo",
+        "gpt-4",
+        "gpt-4-32k",
+        "gpt-4o",
+        "gpt-4o-mini"
+      ],
+      "metadata": {
+        "description": "Azure OpenAI model to deploy (gpt-4o is latest and recommended)"
+      }
+    },
+    "openAISku": {
+      "type": "string",
+      "defaultValue": "S0",
+      "allowedValues": ["S0"],
+      "metadata": {
+        "description": "SKU for Azure OpenAI Service"
+      }
+    },
     "location": {
       "type": "string",
       "defaultValue": "eastus",
@@ -22,79 +66,54 @@
         "uksouth"
       ],
       "metadata": {
-        "description": "Location for all resources (must support Azure OpenAI)"
-      }
-    },
-    "openAIModelName": {
-      "type": "string",
-      "defaultValue": "gpt-4o",
-      "allowedValues": [
-        "gpt-35-turbo",
-        "gpt-4",
-        "gpt-4-32k",
-        "gpt-4o",
-        "gpt-4o-mini"
-      ],
-      "metadata": {
-        "description": "Azure OpenAI model to deploy (gpt-4o is latest and recommended)"
-      }
-    },
-    "assistantName": {
-      "type": "string",
-      "defaultValue": "Copilot Agent",
-      "metadata": {
-        "description": "Name of the assistant bot"
-      }
-    },
-    "characteristicDescription": {
-      "type": "string",
-      "defaultValue": "Copilot Agent is an AI assistant specialized in understanding and analyzing business-specific data and processes",
-      "metadata": {
-        "description": "Description of the assistant's characteristics"
+        "description": "Location for all resources (must support Azure OpenAI). Default: East US"
       }
     }
   },
   "variables": {
-    "uniqueSuffix": "[substring(uniqueString(resourceGroup().id), 0, 6)]",
-    "storageAccountName": "[toLower(concat('st', variables('uniqueSuffix')))]",
+    "hostingPlanName": "[concat(parameters('functionAppName'), '-plan')]",
+    "applicationInsightsName": "[concat(parameters('functionAppName'), '-insights')]",
     "fileShareName": "azfbusinessbot3c92ab",
-    "appServicePlanName": "[concat('asp-businessinsightbot-', variables('uniqueSuffix'))]",
-    "functionAppName": "[concat('func-businessinsightbot-', variables('uniqueSuffix'))]",
-    "appInsightsName": "[concat('ai-businessinsightbot-', variables('uniqueSuffix'))]",
-    "openAIServiceName": "[concat('openai-', variables('uniqueSuffix'))]",
-    "workspaceName": "[concat('law-businessinsightbot-', variables('uniqueSuffix'))]"
+    "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+    "openAIResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('openAIServiceName'))]"
   },
   "resources": [
     {
-      "type": "Microsoft.OperationalInsights/workspaces",
-      "apiVersion": "2021-12-01-preview",
-      "name": "[variables('workspaceName')]",
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('openAIServiceName')]",
       "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('openAISku')]"
+      },
+      "kind": "OpenAI",
       "properties": {
-        "sku": {
-          "name": "PerGB2018"
+        "customSubDomainName": "[parameters('openAIServiceName')]",
+        "networkAcls": {
+          "defaultAction": "Allow"
         },
-        "retentionInDays": 30
+        "publicNetworkAccess": "Enabled"
       }
     },
     {
-      "type": "Microsoft.Insights/components",
-      "apiVersion": "2020-02-02",
-      "name": "[variables('appInsightsName')]",
-      "location": "[parameters('location')]",
-      "kind": "web",
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(parameters('openAIServiceName'), '/gpt-deployment')]",
       "dependsOn": [
-        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+        "[variables('openAIResourceId')]"
       ],
       "properties": {
-        "Application_Type": "web",
-        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('openAIModelName')]"
+        }
       }
     },
     {
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2022-09-01",
-      "name": "[variables('storageAccountName')]",
+      "name": "[parameters('storageAccountName')]",
       "location": "[parameters('location')]",
       "sku": {
         "name": "Standard_LRS"
@@ -108,57 +127,36 @@
     {
       "type": "Microsoft.Storage/storageAccounts/fileServices",
       "apiVersion": "2022-09-01",
-      "name": "[concat(variables('storageAccountName'), '/default')]",
+      "name": "[concat(parameters('storageAccountName'), '/default')]",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+        "[variables('storageAccountId')]"
       ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
       "apiVersion": "2022-09-01",
-      "name": "[concat(variables('storageAccountName'), '/default/', variables('fileShareName'))]",
+      "name": "[concat(parameters('storageAccountName'), '/default/', variables('fileShareName'))]",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/fileServices', variables('storageAccountName'), 'default')]"
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices', parameters('storageAccountName'), 'default')]"
       ],
       "properties": {
         "shareQuota": 5120
       }
     },
     {
-      "type": "Microsoft.CognitiveServices/accounts",
-      "apiVersion": "2023-05-01",
-      "name": "[variables('openAIServiceName')]",
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('applicationInsightsName')]",
       "location": "[parameters('location')]",
-      "sku": {
-        "name": "S0"
-      },
-      "kind": "OpenAI",
+      "kind": "web",
       "properties": {
-        "customSubDomainName": "[variables('openAIServiceName')]",
-        "networkAcls": {
-          "defaultAction": "Allow"
-        },
-        "publicNetworkAccess": "Enabled"
-      }
-    },
-    {
-      "type": "Microsoft.CognitiveServices/accounts/deployments",
-      "apiVersion": "2023-05-01",
-      "name": "[concat(variables('openAIServiceName'), '/gpt-5-chat')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.CognitiveServices/accounts', variables('openAIServiceName'))]"
-      ],
-      "properties": {
-        "model": {
-          "format": "OpenAI",
-          "name": "[parameters('openAIModelName')]"
-        }
+        "Application_Type": "web"
       }
     },
     {
       "type": "Microsoft.Web/serverfarms",
       "apiVersion": "2022-03-01",
-      "name": "[variables('appServicePlanName')]",
+      "name": "[variables('hostingPlanName')]",
       "location": "[parameters('location')]",
       "sku": {
         "name": "Y1",
@@ -184,34 +182,34 @@
     {
       "type": "Microsoft.Web/sites",
       "apiVersion": "2022-03-01",
-      "name": "[variables('functionAppName')]",
+      "name": "[parameters('functionAppName')]",
       "location": "[parameters('location')]",
       "kind": "functionapp,linux",
       "identity": {
         "type": "SystemAssigned"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
-        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
-        "[resourceId('Microsoft.CognitiveServices/accounts', variables('openAIServiceName'))]",
-        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('openAIServiceName'), 'gpt-5-chat')]"
+        "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+        "[variables('storageAccountId')]",
+        "[resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))]",
+        "[variables('openAIResourceId')]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('openAIServiceName'), 'gpt-deployment')]"
       ],
       "properties": {
-        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
         "siteConfig": {
           "appSettings": [
             {
               "name": "AzureWebJobsStorage",
-              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2022-09-01').keys[0].value)]"
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value)]"
             },
             {
               "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
-              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2022-09-01').keys[0].value)]"
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value)]"
             },
             {
               "name": "WEBSITE_CONTENTSHARE",
-              "value": "[toLower(variables('functionAppName'))]"
+              "value": "[toLower(parameters('functionAppName'))]"
             },
             {
               "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -223,19 +221,19 @@
             },
             {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).InstrumentationKey]"
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
             },
             {
               "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
-              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).ConnectionString]"
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).ConnectionString]"
             },
             {
               "name": "AZURE_OPENAI_API_KEY",
-              "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIServiceName')), '2023-05-01').key1]"
+              "value": "[listKeys(variables('openAIResourceId'), '2023-05-01').key1]"
             },
             {
               "name": "AZURE_OPENAI_ENDPOINT",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIServiceName'))).endpoint]"
+              "value": "[reference(variables('openAIResourceId')).endpoint]"
             },
             {
               "name": "AZURE_OPENAI_API_VERSION",
@@ -243,7 +241,7 @@
             },
             {
               "name": "AZURE_OPENAI_DEPLOYMENT_NAME",
-              "value": "gpt-5-chat"
+              "value": "gpt-deployment"
             },
             {
               "name": "AZURE_FILES_SHARE_NAME",
@@ -251,11 +249,11 @@
             },
             {
               "name": "ASSISTANT_NAME",
-              "value": "[parameters('assistantName')]"
+              "value": "Copilot Agent 365"
             },
             {
               "name": "CHARACTERISTIC_DESCRIPTION",
-              "value": "[parameters('characteristicDescription')]"
+              "value": "Enterprise AI assistant integrated with Microsoft 365"
             },
             {
               "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
@@ -268,10 +266,6 @@
             {
               "name": "PYTHON_ENABLE_WORKER_EXTENSIONS",
               "value": "1"
-            },
-            {
-              "name": "AzureWebJobs.main.Disabled",
-              "value": "false"
             }
           ],
           "linuxFxVersion": "python|3.11",
@@ -292,47 +286,73 @@
   "outputs": {
     "functionAppName": {
       "type": "string",
-      "value": "[variables('functionAppName')]"
+      "value": "[parameters('functionAppName')]"
     },
     "functionAppUrl": {
       "type": "string",
-      "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('functionAppName'))).defaultHostName)]"
+      "value": "[concat('https://', reference(variables('functionAppId')).defaultHostName)]"
     },
     "functionEndpoint": {
       "type": "string",
-      "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('functionAppName'))).defaultHostName, '/api/businessinsightbot_function')]"
-    },
-    "functionUrlWithKey": {
-      "type": "string",
-      "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('functionAppName'))).defaultHostName, '/api/businessinsightbot_function?code=', listkeys(concat(resourceId('Microsoft.Web/sites', variables('functionAppName')), '/host/default'), '2022-03-01').functionKeys.default)]"
+      "value": "[concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function')]"
     },
     "openAIEndpoint": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIServiceName'))).endpoint]"
-    },
-    "openAIKey": {
-      "type": "string",
-      "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIServiceName')), '2023-05-01').key1]"
+      "value": "[reference(variables('openAIResourceId')).endpoint]"
     },
     "storageAccountName": {
       "type": "string",
-      "value": "[variables('storageAccountName')]"
+      "value": "[parameters('storageAccountName')]"
     },
-    "storageConnectionString": {
+    "resourceGroupName": {
       "type": "string",
-      "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2022-09-01').keys[0].value)]"
+      "value": "[resourceGroup().name]"
+    },
+    "quickDeployCommand": {
+      "type": "string",
+      "value": "[concat('git clone https://github.com/kody-w/Copilot-Agent-365.git && cd Copilot-Agent-365 && zip -r deploy.zip . -x \"*.git*\" && az functionapp deployment source config-zip --resource-group ', resourceGroup().name, ' --name ', parameters('functionAppName'), ' --src deploy.zip')]"
     },
     "localSettingsJson": {
       "type": "string",
-      "value": "[concat('{\n  \"IsEncrypted\": false,\n  \"Values\": {\n    \"AzureWebJobsStorage\": \"', concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2022-09-01').keys[0].value), '\",\n    \"FUNCTIONS_WORKER_RUNTIME\": \"python\",\n    \"AZURE_OPENAI_API_KEY\": \"', listKeys(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIServiceName')), '2023-05-01').key1, '\",\n    \"AZURE_OPENAI_ENDPOINT\": \"', reference(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIServiceName'))).endpoint, '\",\n    \"AZURE_OPENAI_API_VERSION\": \"2024-02-01\",\n    \"AZURE_OPENAI_DEPLOYMENT_NAME\": \"gpt-5-chat\",\n    \"AZURE_FILES_SHARE_NAME\": \"', variables('fileShareName'), '\",\n    \"ASSISTANT_NAME\": \"', parameters('assistantName'), '\",\n    \"CHARACTERISTIC_DESCRIPTION\": \"', parameters('characteristicDescription'), '\"\n  }\n}')]"
+      "value": "[concat('{\n  \"IsEncrypted\": false,\n  \"Values\": {\n    \"AzureWebJobsStorage\": \"', concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value), '\",\n    \"FUNCTIONS_WORKER_RUNTIME\": \"python\",\n    \"AZURE_OPENAI_API_KEY\": \"', listKeys(variables('openAIResourceId'), '2023-05-01').key1, '\",\n    \"AZURE_OPENAI_ENDPOINT\": \"', reference(variables('openAIResourceId')).endpoint, '\",\n    \"AZURE_OPENAI_API_VERSION\": \"2024-02-01\",\n    \"AZURE_FILES_SHARE_NAME\": \"', variables('fileShareName'), '\",\n    \"ASSISTANT_NAME\": \"Copilot Agent 365\",\n    \"CHARACTERISTIC_DESCRIPTION\": \"Enterprise AI assistant integrated with Microsoft 365\"\n  }\n}')]"
     },
-    "testCommand": {
+    "createLocalSettingsCommand": {
       "type": "string",
-      "value": "[concat('curl -X POST \"', concat('https://', reference(resourceId('Microsoft.Web/sites', variables('functionAppName'))).defaultHostName, '/api/businessinsightbot_function?code=', listkeys(concat(resourceId('Microsoft.Web/sites', variables('functionAppName')), '/host/default'), '2022-03-01').functionKeys.default), '\" -H \"Content-Type: application/json\" -d ''{\"user_input\":\"Hello\",\"conversation_history\":[]}''')]"
+      "value": "[concat('echo ''', replace(replace(concat('{\n  \"IsEncrypted\": false,\n  \"Values\": {\n    \"AzureWebJobsStorage\": \"', concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value), '\",\n    \"FUNCTIONS_WORKER_RUNTIME\": \"python\",\n    \"AZURE_OPENAI_API_KEY\": \"', listKeys(variables('openAIResourceId'), '2023-05-01').key1, '\",\n    \"AZURE_OPENAI_ENDPOINT\": \"', reference(variables('openAIResourceId')).endpoint, '\",\n    \"AZURE_OPENAI_API_VERSION\": \"2024-02-01\",\n    \"AZURE_FILES_SHARE_NAME\": \"', variables('fileShareName'), '\",\n    \"ASSISTANT_NAME\": \"Copilot Agent 365\",\n    \"CHARACTERISTIC_DESCRIPTION\": \"Enterprise AI assistant integrated with Microsoft 365\"\n  }\n}'), '''', ''''''), '\"', '\\\"'), ''' > local.settings.json')]"
     },
     "deploymentInstructions": {
       "type": "string",
-      "value": "🚀 DEPLOYMENT COMPLETE!\n1. Save the 'localSettingsJson' content to local.settings.json for local testing\n2. Use 'functionUrlWithKey' output for your API endpoint\n3. Selected model will be deployed as 'gpt-5-chat' deployment name"
+      "value": "🚀 DEPLOYMENT STEPS:\n1. Copy and run the 'quickDeployCommand' above\n2. Or save the 'localSettingsJson' content to a file named 'local.settings.json' for local testing\n3. Get your function key from: Azure Portal → Function App → Functions → main → Function Keys"
+    },
+    "testCommand": {
+      "type": "string",
+      "value": "[concat('curl -X POST ', concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function'), ' -H \"Content-Type: application/json\" -d ''{\"user_input\":\"Hello\",\"conversation_history\":[]}''')]"
+    },
+    "allConnectionStrings": {
+      "type": "object",
+      "value": {
+        "storageConnection": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=',listKeys(variables('storageAccountId'), '2022-09-01').keys[0].value)]",
+        "openAIKey": "[listKeys(variables('openAIResourceId'), '2023-05-01').key1]",
+        "openAIEndpoint": "[reference(variables('openAIResourceId')).endpoint]",
+        "appInsightsKey": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]",
+        "appInsightsConnectionString": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).ConnectionString]"
+      }
+    },
+    "functionAppMasterKey": {
+      "type": "string",
+      "value": "[listkeys(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/host/default'), '2022-03-01').masterKey]"
+    },
+    "functionAppDefaultKey": {
+      "type": "string",
+      "value": "[listkeys(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/host/default'), '2022-03-01').functionKeys.default]"
+    },
+    "functionUrlWithKey": {
+      "type": "string",
+      "value": "[concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function?code=', listkeys(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/host/default'), '2022-03-01').functionKeys.default)]"
+    },
+    "testCommandWithKey": {
+      "type": "string",
+      "value": "[concat('curl -X POST \"', concat('https://', reference(variables('functionAppId')).defaultHostName, '/api/businessinsightbot_function?code=', listkeys(concat(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '/host/default'), '2022-03-01').functionKeys.default), '\" -H \"Content-Type: application/json\" -d ''{\"user_input\":\"Hello\",\"conversation_history\":[]}''')]"
     }
   }
 }
