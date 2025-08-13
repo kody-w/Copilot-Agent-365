@@ -1,3 +1,53 @@
-azure-functions==1.18.0
-openai==1.12.0
+# Core Azure Functions and Storage dependencies
+azure-functions==1.15.0
+azure-storage-blob==12.16.0
 azure-storage-file==2.1.0
+azure-core>=1.28.0,<2.0.0
+
+# OpenAI
+openai>=1.6.1,<2.0.0
+
+# GRPC dependencies
+grpcio==1.54.2
+grpcio-tools==1.54.2
+
+# HTTP and SSL dependencies (explicit control)
+urllib3>=1.26.0,<2.0.0  # Explicitly use v1.x to avoid LibreSSL warnings
+requests>=2.31.0  # Updated to newer version for better compatibility
+certifi>=2023.0.0  # Ensure SSL certificates are up to date
+
+# Terminal formatting
+termcolor==2.5.0
+colorama==0.4.6
+
+# SharePoint dependencies
+office365-rest-python-client>=2.3.0
+python-docx>=0.8.11
+pypdf>=3.0.0
+msal>=1.20.0
+
+# Additional dependencies
+python-dateutil>=2.8.2
+
+# PowerPoint agent dependencies
+python-pptx>=0.6.21
+
+# Browser Automation and AI Agents dependencies
+azure-ai-projects>=1.0.0b4
+azure-ai-agents>=1.0.0b1
+azure-identity>=1.15.0
+
+# Code Review Agent with full AgentTeam functionality
+pyyaml>=6.0.0
+azure-monitor-opentelemetry>=1.0.0
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+python-dotenv>=1.0.0
+
+# Nexus World Enhancer Agent dependencies
+beautifulsoup4>=4.12.0  # For HTML parsing and analysis
+lxml>=4.9.0  # Parser for BeautifulSoup
+html5lib>=1.1  # Alternative parser for complex HTML
+regex>=2023.0.0  # Advanced regex support for pattern matching
+numpy>=1.24.0  # For mathematical calculations in texture generation
+Pillow>=10.0.0  # For procedural texture generation (if needed)
