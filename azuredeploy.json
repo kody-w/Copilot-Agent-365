@@ -29,7 +29,53 @@
         "japaneast"
       ],
       "metadata": {
-        "description": "Location for Azure OpenAI resource"
+        "description": "Location for Azure OpenAI resource - choose based on model availability"
+      }
+    },
+    "openAIModelName": {
+      "type": "string",
+      "defaultValue": "gpt-4",
+      "allowedValues": [
+        "gpt-35-turbo",
+        "gpt-35-turbo-16k",
+        "gpt-4",
+        "gpt-4-32k",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-5"
+      ],
+      "metadata": {
+        "description": "Azure OpenAI model name - availability varies by region"
+      }
+    },
+    "openAIModelVersion": {
+      "type": "string",
+      "defaultValue": "0613",
+      "metadata": {
+        "description": "Model version (e.g., 0613, 1106-preview, 2024-02-15-preview, 2025-01-01-preview)"
+      }
+    },
+    "openAIDeploymentName": {
+      "type": "string",
+      "defaultValue": "gpt-5-chat",
+      "metadata": {
+        "description": "Deployment name for the OpenAI model - this is what your code references"
+      }
+    },
+    "openAIApiVersion": {
+      "type": "string",
+      "defaultValue": "2025-01-01-preview",
+      "allowedValues": [
+        "2023-05-15",
+        "2023-06-01-preview",
+        "2023-10-01-preview",
+        "2024-02-15-preview",
+        "2024-05-01-preview",
+        "2024-08-01-preview",
+        "2025-01-01-preview"
+      ],
+      "metadata": {
+        "description": "Azure OpenAI API version"
       }
     },
     "assistantName": {
@@ -55,10 +101,6 @@
     "functionAppName": "[concat('func-businessinsightbot-', variables('uniqueSuffix'))]",
     "appInsightsName": "[concat('ai-businessinsightbot-', variables('uniqueSuffix'))]",
     "openAIAccountName": "[concat('oai-bizbot-', variables('uniqueSuffix'))]",
-    "openAIDeploymentName": "gpt-5-chat",
-    "openAIModelName": "gpt-5",
-    "openAIModelVersion": "2025-01-01-preview",
-    "openAIApiVersion": "2025-01-01-preview",
     "workspaceName": "[concat('law-businessinsightbot-', variables('uniqueSuffix'))]"
   },
   "resources": [
@@ -148,7 +190,7 @@
     {
       "type": "Microsoft.CognitiveServices/accounts/deployments",
       "apiVersion": "2023-10-01-preview",
-      "name": "[concat(variables('openAIAccountName'), '/', variables('openAIDeploymentName'))]",
+      "name": "[concat(variables('openAIAccountName'), '/', parameters('openAIDeploymentName'))]",
       "dependsOn": [
         "[resourceId('Microsoft.CognitiveServices/accounts', variables('openAIAccountName'))]"
       ],
@@ -159,8 +201,8 @@
       "properties": {
         "model": {
           "format": "OpenAI",
-          "name": "[variables('openAIModelName')]",
-          "version": "[variables('openAIModelVersion')]"
+          "name": "[parameters('openAIModelName')]",
+          "version": "[parameters('openAIModelVersion')]"
         },
         "raiPolicyName": "Microsoft.Default"
       }
@@ -190,7 +232,7 @@
         "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
         "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
-        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('openAIAccountName'), variables('openAIDeploymentName'))]"
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('openAIAccountName'), parameters('openAIDeploymentName'))]"
       ],
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
@@ -219,7 +261,7 @@
             },
             {
               "name": "AZURE_OPENAI_DEPLOYMENT_NAME",
-              "value": "[variables('openAIDeploymentName')]"
+              "value": "[parameters('openAIDeploymentName')]"
             },
             {
               "name": "AZURE_OPENAI_API_KEY",
@@ -227,7 +269,7 @@
             },
             {
               "name": "AZURE_OPENAI_API_VERSION",
-              "value": "[variables('openAIApiVersion')]"
+              "value": "[parameters('openAIApiVersion')]"
             },
             {
               "name": "AZURE_OPENAI_ENDPOINT",
@@ -302,11 +344,19 @@
     },
     "openAIDeploymentName": {
       "type": "string",
-      "value": "[variables('openAIDeploymentName')]"
+      "value": "[parameters('openAIDeploymentName')]"
+    },
+    "openAIModelName": {
+      "type": "string",
+      "value": "[parameters('openAIModelName')]"
+    },
+    "openAIModelVersion": {
+      "type": "string",
+      "value": "[parameters('openAIModelVersion')]"
     },
     "openAIApiVersion": {
       "type": "string",
-      "value": "[variables('openAIApiVersion')]"
+      "value": "[parameters('openAIApiVersion')]"
     },
     "applicationInsightsName": {
       "type": "string",
@@ -324,11 +374,11 @@
       "type": "object",
       "value": {
         "storageAccountConfigured": "[concat('Storage Account: ', variables('storageAccountName'), ' with File Share: ', variables('fileShareName'))]",
-        "openAIConfigured": "[concat('OpenAI Service: ', variables('openAIAccountName'), ' with deployment: ', variables('openAIDeploymentName'))]",
+        "openAIConfigured": "[concat('OpenAI Service: ', variables('openAIAccountName'), ' in ', parameters('openAILocation'), ' with deployment: ', parameters('openAIDeploymentName'), ' using model: ', parameters('openAIModelName'), ' version: ', parameters('openAIModelVersion'))]",
         "functionAppConfigured": "[concat('Function App: ', variables('functionAppName'), ' with Python 3.11 runtime')]",
         "environmentVariablesSet": {
-          "AZURE_OPENAI_DEPLOYMENT_NAME": "[variables('openAIDeploymentName')]",
-          "AZURE_OPENAI_API_VERSION": "[variables('openAIApiVersion')]",
+          "AZURE_OPENAI_DEPLOYMENT_NAME": "[parameters('openAIDeploymentName')]",
+          "AZURE_OPENAI_API_VERSION": "[parameters('openAIApiVersion')]",
           "AZURE_FILES_SHARE_NAME": "[variables('fileShareName')]",
           "ASSISTANT_NAME": "[parameters('assistantName')]"
         }
