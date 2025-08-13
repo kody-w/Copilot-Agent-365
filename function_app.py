@@ -100,25 +100,127 @@ def load_agents_from_folder():
             logging.error(f"Error loading agent {file}: {str(e)}")
             continue
 
-    # Removed Azure File Share agent loading completely to prevent ResourceNotFound errors
-    # Agents are loaded only from the local agents folder
+    storage_manager = AzureFileStorageManager()
+    try:
+        agent_files = storage_manager.list_files('agents')
+        
+        for file in agent_files:
+            if not file.name.endswith('_agent.py'):
+                continue
+
+            try:
+                file_content = storage_manager.read_file('agents', file.name)
+                if file_content is None:
+                    continue
+
+                temp_dir = "/tmp/agents"
+                os.makedirs(temp_dir, exist_ok=True)
+                temp_file = f"{temp_dir}/{file.name}"
+
+                with open(temp_file, 'w') as f:
+                    f.write(file_content)
+
+                if temp_dir not in sys.path:
+                    sys.path.append(temp_dir)
+
+                module_name = file.name[:-3]
+                spec = importlib.util.spec_from_file_location(module_name, temp_file)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                for name, obj in inspect.getmembers(module):
+                    if (inspect.isclass(obj) and
+                        issubclass(obj, BasicAgent) and
+                        obj is not BasicAgent):
+                        agent_instance = obj()
+                        declared_agents[agent_instance.name] = agent_instance
+
+                os.remove(temp_file)
+
+            except Exception as e:
+                logging.error(f"Error loading agent {file.name} from Azure File Share: {str(e)}")
+                continue
+
+    except Exception as e:
+        logging.error(f"Error loading agents from Azure File Share: {str(e)}")
+
+    # Load multi-agents from multi_agents folder
+    try:
+        multi_agent_files = storage_manager.list_files('multi_agents')
+        
+        for file in multi_agent_files:
+            if not file.name.endswith('_agent.py'):
+                continue
+
+            try:
+                file_content = storage_manager.read_file('multi_agents', file.name)
+                if file_content is None:
+                    continue
+
+                temp_dir = "/tmp/multi_agents"
+                os.makedirs(temp_dir, exist_ok=True)
+                temp_file = f"{temp_dir}/{file.name}"
+
+                with open(temp_file, 'w') as f:
+                    f.write(file_content)
+
+                if temp_dir not in sys.path:
+                    sys.path.append(temp_dir)
+
+                # Also add the parent directory to sys.path so imports work
+                parent_dir = "/tmp"
+                if parent_dir not in sys.path:
+                    sys.path.append(parent_dir)
+
+                module_name = file.name[:-3]
+                spec = importlib.util.spec_from_file_location(f"multi_agents.{module_name}", temp_file)
+                module = importlib.util.module_from_spec(spec)
+                
+                # Create the multi_agents package if it doesn't exist
+                import types
+                if 'multi_agents' not in sys.modules:
+                    multi_agents_module = types.ModuleType('multi_agents')
+                    sys.modules['multi_agents'] = multi_agents_module
+                
+                # Add the module to the multi_agents package
+                sys.modules[f"multi_agents.{module_name}"] = module
+                spec.loader.exec_module(module)
+
+                for name, obj in inspect.getmembers(module):
+                    if (inspect.isclass(obj) and
+                        issubclass(obj, BasicAgent) and
+                        obj is not BasicAgent):
+                        agent_instance = obj()
+                        declared_agents[agent_instance.name] = agent_instance
+                        logging.info(f"Loaded multi-agent: {agent_instance.name}")
+
+                os.remove(temp_file)
+
+            except Exception as e:
+                logging.error(f"Error loading multi-agent {file.name} from Azure File Share: {str(e)}")
+                continue
+
+    except Exception as e:
+        logging.error(f"Error loading multi-agents from Azure File Share: {str(e)}")
 
     return declared_agents
 
 class Assistant:
     def __init__(self, declared_agents):
         self.config = {
-            'assistant_name': str(os.environ.get('ASSISTANT_NAME', 'BusinessInsightBot')),
+            'assistant_name': str(os.environ.get('ASSISTANT_NAME', 'Copilot Agent')),
             'characteristic_description': str(os.environ.get('CHARACTERISTIC_DESCRIPTION', 'helpful business assistant'))
         }
 
         try:
+            # Try with api_version parameter first (newer SDK)
             self.client = AzureOpenAI(
                 api_key=os.environ['AZURE_OPENAI_API_KEY'],
-                api_version=os.environ['AZURE_OPENAI_API_VERSION'],
+                api_version=os.environ.get('AZURE_OPENAI_API_VERSION', '2025-01-01-preview'),
                 azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT']
             )
         except TypeError:
+            # Fall back to older SDK parameter name if needed
             self.client = AzureOpenAI(
                 api_key=os.environ['AZURE_OPENAI_API_KEY'],
                 azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT']
@@ -313,8 +415,11 @@ Revenue's up 12 percent and customers are happier - looking good for Q3.
     
     def get_openai_api_call(self, messages):
         try:
+            # Use the deployment name from environment variable
+            model_name = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-5-chat')
+            
             response = self.client.chat.completions.create(
-                model="gpt-4.1",
+                model=model_name,
                 messages=messages,
                 functions=self.get_agent_metadata(),
                 function_call="auto"
